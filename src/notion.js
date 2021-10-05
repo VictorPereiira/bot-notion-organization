@@ -5,24 +5,18 @@ const readlineSync = require('readline-sync')
 const notion = new Client({ auth: process.env.NOTION_KEY })
 
 async function initBot() {
-    resetInterface()
-    const info = {}
-
-    info.homePage_Title = readlineSync.question('How would you like to call your home page? \nR: ')
-
+    console.clear()
+    console.log('🤖 Wellcome to Notion Organization Bot')
     console.log('\n')
-    info.plataform_Link = readlineSync.question('What is the access link for your study platform? \nR: ')
 
-    resetInterface()
-    setStatus('Status: 📥 GetData...')
-
-    return {
-        data: await getData(),
-        info: info
-    }
+    const info = await getInfo()
+    return { info, data: await getData() }
 }
 
 async function getData() {
+    resetInterface()
+    setStatus('📥 GetData...')
+
     const DB01 = await notion.databases.retrieve({
         database_id: process.env.NOTION_DB01_ID
     })
@@ -33,6 +27,17 @@ async function getData() {
 
     return { DB01, homePage }
 }
+
+async function getInfo() {
+    const info = {}
+    info.homePage_Title = readlineSync.question('How would you like to call your home page? \nR: ')
+
+    console.log('\n')
+    info.plataform_Link = readlineSync.question('What is the access link for your study platform? \nR: ')
+
+    return info
+}
+
 
 async function setSettings(homePage, newTitle) {
     resetInterface()
@@ -54,7 +59,7 @@ async function setSettings(homePage, newTitle) {
 
 function resetInterface() {
     console.clear()
-    console.log('🤖 Wellcome to Notion Organization Bot')
+    console.log('🤖 Notion Organization Bot')
     console.log('\n')
 }
 
