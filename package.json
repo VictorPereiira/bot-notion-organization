@@ -1,0 +1,25 @@
+{
+  "name": "bot-notion-organization",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/notion.js",
+  "scripts": {
+    "dev": "node ./src/notion.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VictorPereiira/bot-notion-organization.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/VictorPereiira/bot-notion-organization/issues"
+  },
+  "homepage": "https://github.com/VictorPereiira/bot-notion-organization#readme",
+  "dependencies": {
+    "@notionhq/client": "^0.4.0",
+    "dotenv": "^10.0.0",
+    "readline-sync": "^1.4.10"
+  }
+}
