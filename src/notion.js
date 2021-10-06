@@ -17,6 +17,8 @@ async function initBot() {
 }
 
 async function getInfo(homePage) {
+    resetInterface()
+    setStatus('📥 GetInfo...')
     const info = {}
 
     try {
@@ -26,18 +28,12 @@ async function getInfo(homePage) {
         await setSettings(homePage, info.homePage_Title)
     }
 
-    // Get Icon and Background_page
-    // try {
-    //     info.homePage_Icon = homePage.properties.title.title[0].plain_text
-    // } catch (error) {
-    //     info.homePage_Title = readlineSync.question('How would you like to call your home page? \nR: ')
-    //     await setSettings(homePage, info.homePage_Title)
-    // }
+    resetInterface()
+    setStatus('🆙 Update Plataform Link...')
+    // NOTION_PLATFORM_LINK = 'https://example.com/'
+    info.platform_Link = process.env.NOTION_PLATFORM_LINK
 
-    try {
-        info.platform_Link = process.env.NOTION_PLATFORM_LINK
-    } catch (error) {
-        console.log('\n')
+    if (info.platform_Link === undefined) {
         info.platform_Link = readlineSync.question('What is the access link for your study platform? \nR: ')
     }
 
@@ -113,12 +109,11 @@ async function setSettings(homePage, newTitle) {
     })
 }
 
-async function createSubject({ title, type, link, step, teacher, pageId, DB01 }) {
+async function createSubject({ title, type, link, step, teacher, pageMainURL, DB01 }) {
     resetInterface()
     setStatus('🔨 Create Subjects...')
     console.log('\n')
 
-    const pageMainURL = await (await notion.pages.retrieve({ page_id: pageId })).url
     const prefix = 'AA'
 
     const page = await notion.pages.create({
@@ -196,22 +191,23 @@ function resetInterface() {
 
 function setStatus(message) {
     console.log(`Status: ${message}`)
+    console.log('\n')
 }
+
 
 initBot().then((arguments) => {
     (async () => {
-        return console.log(arguments.info)
-        const option = readlineSync.question('📑 Opiton: ')
+        resetInterface()
+        setStatus('🧭 Open Menu Opitions')
+        const option = readlineSync.question('Opiton: ')
 
         if (option === '0') {
-            const info = await getInfo()
-
             // await setSettings(
             //     arguments.data.homePage,
             //     arguments.info.homePage_Title
             // )
 
-            console.log(arguments.info);
+            console.log(arguments);
         }
 
         if (option === '1') {
@@ -221,7 +217,7 @@ initBot().then((arguments) => {
                 link: arguments.info.platform_Link,
                 step: arguments.data.DB01,
                 teacher: readlineSync.question('Subject teacher: '),
-                pageId: arguments.data.homePage.id,
+                pageId: arguments.data.homePage.url,
                 DB01: arguments.data.DB01
             })
         }
