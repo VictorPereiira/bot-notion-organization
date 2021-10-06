@@ -1,6 +1,7 @@
 require('dotenv').config()
 const { Client } = require('@notionhq/client')
 const readlineSync = require('readline-sync')
+const puppeteer = require('puppeteer')
 
 const notion = new Client({ auth: process.env.NOTION_KEY })
 
@@ -38,6 +39,48 @@ async function getData() {
     return { DB01, homePage }
 }
 
+async function getPages(db) {
+    const browser = await puppeteer.launch({ headless: false });
+    const page = await browser.newPage()
+    page.setViewport({ width: 1366, height: 768 })
+
+    await Promise.all([
+        page.waitForNavigation(),
+        await page.goto(`${db.url}`, {
+            waitUntil: "networkidle0",
+        })
+    ])
+
+    await Promise.all([
+        page.waitForNavigation(),
+        await page.type('[id="notion-email-input-1"]', process.env.NOTION_EMAIL),
+        await page.keyboard.press("Enter", { delay: 1000 }),
+        await page.type("#notion-password-input-2", process.env.NOTION_PW),
+        await page.keyboard.press("Enter", { delay: 2000 })
+    ])
+
+    await Promise.all([
+        page.waitForNavigation(),
+        await page.goto(`${db.url}`, {
+            waitUntil: "networkidle0",
+        })
+    ])
+
+    async function listIds() {
+        console.log('Get Ids...')
+        let pageIds
+
+        await page.evaluate(() => {
+            console.log('inside evaluate');
+            pageIds = Array.from(document.querySelectorAll('.notion-table-view div .notion-collection-item')).map((el) => el.dataset.blockId)
+        })
+
+        return pageIds
+    }
+
+    return listIds()
+}
+
 async function setSettings(homePage, newTitle) {
     resetInterface()
     setStatus('🆙 Update Home Page Title...')
@@ -56,8 +99,14 @@ async function setSettings(homePage, newTitle) {
     })
 }
 
-async function createSubject({ title, prefix, type, link, step, teacher, pageId, DB01 }) {
+
+async function createSubject({ title, type, link, step, teacher, pageId, DB01 }) {
+    resetInterface()
+    setStatus('🔨 Create Subjects...')
+    console.log('\n')
+
     const pageMainURL = await (await notion.pages.retrieve({ page_id: pageId })).url
+    const prefix = 'AA'
 
     const page = await notion.pages.create({
         parent: {
@@ -115,26 +164,15 @@ async function createSubject({ title, prefix, type, link, step, teacher, pageId,
                 paragraph: {
                     text: [{
                         text: {
-                            content: 'Start Block'
+                            content: ''
                         }
                     }]
-                }
-            },
-            {
-                to_do: {
-                    text: [{
-                        type: "text",
-                        text: {
-                            content: "Lacinato kale"
-                        }
-                    }],
-                    checked: false
                 }
             }
         ]
     })
 
-    console.log('✅ Page Create!!!');
+    console.log('✅ Subject Create!!!')
 }
 
 function resetInterface() {
@@ -155,16 +193,18 @@ initBot().then((arguments) => {
         //     arguments.info.homePage_Title
         // )
 
-        await createSubject({
-            title: readlineSync.question('Subject title: ') || 'ABC',
-            prefix: readlineSync.question('Subject prefix: ') || 'AB',
-            type: arguments.data.DB01,
-            link: arguments.info.platform_Link,
-            step: arguments.data.DB01,
-            teacher: readlineSync.question('Subject teacher: '),
-            pageId: arguments.data.homePage.id,
-            DB01: arguments.data.DB01
-        })
+        // await createSubject({
+        //     title: readlineSync.question('Subject title: ') || 'ABC',
+        //     type: arguments.data.DB01,
+        //     link: arguments.info.platform_Link,
+        //     step: arguments.data.DB01,
+        //     teacher: readlineSync.question('Subject teacher: '),
+        //     pageId: arguments.data.homePage.id,
+        //     DB01: arguments.data.DB01
+        // })
+
+        const pagesID = await getPages(arguments.data.DB01)
+        console.log(pagesID);
 
         // resetInterface()
         setStatus('🏁 Finished')
