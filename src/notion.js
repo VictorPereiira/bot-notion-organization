@@ -10,15 +10,36 @@ async function initBot() {
     console.log('🤖 Wellcome to Notion Organization Bot')
     console.log('\n')
 
-    return { data: await getData() }
+    const data = await getData()
+    const info = await getInfo(data.homePage)
+
+    return { data, info }
 }
 
-async function getInfo() {
+async function getInfo(homePage) {
     const info = {}
-    info.homePage_Title = readlineSync.question('How would you like to call your home page? \nR: ')
 
-    console.log('\n')
-    info.platform_Link = readlineSync.question('What is the access link for your study platform? \nR: ')
+    try {
+        info.homePage_Title = homePage.properties.title.title[0].plain_text
+    } catch (error) {
+        info.homePage_Title = readlineSync.question('How would you like to call your home page? \nR: ')
+        await setSettings(homePage, info.homePage_Title)
+    }
+
+    // Get Icon and Background_page
+    // try {
+    //     info.homePage_Icon = homePage.properties.title.title[0].plain_text
+    // } catch (error) {
+    //     info.homePage_Title = readlineSync.question('How would you like to call your home page? \nR: ')
+    //     await setSettings(homePage, info.homePage_Title)
+    // }
+
+    try {
+        info.platform_Link = process.env.NOTION_PLATFORM_LINK
+    } catch (error) {
+        console.log('\n')
+        info.platform_Link = readlineSync.question('What is the access link for your study platform? \nR: ')
+    }
 
     return info
 }
@@ -177,14 +198,13 @@ function setStatus(message) {
     console.log(`Status: ${message}`)
 }
 
-
 initBot().then((arguments) => {
     (async () => {
+        return console.log(arguments.info)
         const option = readlineSync.question('📑 Opiton: ')
 
         if (option === '0') {
             const info = await getInfo()
-            arguments.info = info
 
             // await setSettings(
             //     arguments.data.homePage,
