@@ -10,8 +10,7 @@ async function initBot() {
     console.log('🤖 Wellcome to Notion Organization Bot')
     console.log('\n')
 
-    const info = await getInfo()
-    return { info, data: await getData() }
+    return { data: await getData() }
 }
 
 async function getInfo() {
@@ -28,19 +27,26 @@ async function getData() {
     resetInterface()
     setStatus('📥 GetData...')
 
-    const DB01 = await notion.databases.retrieve({
-        database_id: process.env.NOTION_DB01_ID
-    })
-
     const homePage = await notion.pages.retrieve({
         page_id: process.env.NOTION_PAGE_ID
     })
 
-    return { DB01, homePage }
+    const DB01 = await notion.databases.retrieve({
+        database_id: process.env.NOTION_DB01_ID
+    })
+
+    // const DB01_pagesID = await getPages(DB01)
+    // return { homePage, DB01, DB01_pagesID }
+
+    return { homePage, DB01 }
 }
 
 async function getPages(db) {
-    const browser = await puppeteer.launch({ headless: false });
+    const browser = await puppeteer.launch({
+        headless: true,
+        devtools: false
+    });
+
     const page = await browser.newPage()
     page.setViewport({ width: 1366, height: 768 })
 
@@ -59,26 +65,13 @@ async function getPages(db) {
         await page.keyboard.press("Enter", { delay: 2000 })
     ])
 
-    await Promise.all([
-        page.waitForNavigation(),
-        await page.goto(`${db.url}`, {
-            waitUntil: "networkidle0",
-        })
-    ])
+    await page.waitForTimeout(5000)
+    const pageID = await page.$$eval('.notion-table-view  div  .notion-collection-item', el => {
+        return el.map(el => el.dataset.blockId)
+    })
 
-    async function listIds() {
-        console.log('Get Ids...')
-        let pageIds
-
-        await page.evaluate(() => {
-            console.log('inside evaluate');
-            pageIds = Array.from(document.querySelectorAll('.notion-table-view div .notion-collection-item')).map((el) => el.dataset.blockId)
-        })
-
-        return pageIds
-    }
-
-    return listIds()
+    await page.close()
+    return pageID
 }
 
 async function setSettings(homePage, newTitle) {
@@ -98,7 +91,6 @@ async function setSettings(homePage, newTitle) {
         }
     })
 }
-
 
 async function createSubject({ title, type, link, step, teacher, pageId, DB01 }) {
     resetInterface()
@@ -188,23 +180,31 @@ function setStatus(message) {
 
 initBot().then((arguments) => {
     (async () => {
-        // await setSettings(
-        //     arguments.data.homePage,
-        //     arguments.info.homePage_Title
-        // )
+        const option = readlineSync.question('📑 Opiton: ')
 
-        // await createSubject({
-        //     title: readlineSync.question('Subject title: ') || 'ABC',
-        //     type: arguments.data.DB01,
-        //     link: arguments.info.platform_Link,
-        //     step: arguments.data.DB01,
-        //     teacher: readlineSync.question('Subject teacher: '),
-        //     pageId: arguments.data.homePage.id,
-        //     DB01: arguments.data.DB01
-        // })
+        if (option === '0') {
+            const info = await getInfo()
+            arguments.info = info
 
-        const pagesID = await getPages(arguments.data.DB01)
-        console.log(pagesID);
+            // await setSettings(
+            //     arguments.data.homePage,
+            //     arguments.info.homePage_Title
+            // )
+
+            console.log(arguments.info);
+        }
+
+        if (option === '1') {
+            await createSubject({
+                title: readlineSync.question('Subject title: ') || 'ABC',
+                type: arguments.data.DB01,
+                link: arguments.info.platform_Link,
+                step: arguments.data.DB01,
+                teacher: readlineSync.question('Subject teacher: '),
+                pageId: arguments.data.homePage.id,
+                DB01: arguments.data.DB01
+            })
+        }
 
         // resetInterface()
         setStatus('🏁 Finished')
