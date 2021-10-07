@@ -56,38 +56,6 @@ async function getData() {
     return { homePage, DB01 }
 }
 
-async function getPages(db) {
-    const browser = await puppeteer.launch({
-        headless: true,
-        devtools: false
-    });
-
-    const page = await browser.newPage()
-    page.setViewport({ width: 1366, height: 768 })
-
-    await Promise.all([
-        page.waitForNavigation(),
-        await page.goto(`${db.url}`, {
-            waitUntil: "networkidle0",
-        })
-    ])
-
-    await Promise.all([
-        page.waitForNavigation(),
-        await page.type('[id="notion-email-input-1"]', process.env.NOTION_EMAIL),
-        await page.keyboard.press("Enter", { delay: 1000 }),
-        await page.type("#notion-password-input-2", process.env.NOTION_PW),
-        await page.keyboard.press("Enter", { delay: 2000 })
-    ])
-
-    await page.waitForTimeout(3000)
-    const pageID = await page.$$eval('.notion-table-view  div  .notion-collection-item', el => {
-        return el.map(el => el.dataset.blockId)
-    })
-
-    await page.close()
-    return pageID
-}
 
 // Bot functions
 async function setSettings(homePage, newTitle) {
@@ -115,6 +83,7 @@ async function createSubject(subjectInfo) {
 
     let i = 0
     let infoAmount = subjectInfo.length
+    let subjects = []
 
     async function runCreateSubject(subjectInfo) {
         const prefix = await createPrefix(subjectInfo[i].title)
@@ -181,47 +150,63 @@ async function createSubject(subjectInfo) {
             ]
         })
 
+        subjects.push({
+            pageId: page.id,
+            classAmount: subjectInfo[i].classAmount
+        })
+
         i++
         console.log(`✅ Subject ${prefix} - Create!!!`)
         if (i < infoAmount) await runCreateSubject(subjectInfo)
     }
 
     await runCreateSubject(subjectInfo)
+    return subjects
 }
 
-async function createConteSubject() {
-    const urlPage = (await notion.pages.retrieve({ page_id: AP_id })).url
+async function createSubjectContent(subjects) {
+    const i = 0
+    const loop = subjects.length
 
-    const browser = await puppeteer.launch({
-        headless: false,
-        devtools: false
-    });
+    async function runCreateSubjectContent(subjects) {
+        const urlPage = (await notion.pages.retrieve({ page_id: subjects[i].pageId })).url
+        const browser = await puppeteer.launch({
+            headless: false,
+            devtools: false
+        });
 
-    const page = await browser.newPage()
-    page.setViewport({ width: 1366, height: 768 })
+        const page = await browser.newPage()
+        page.setViewport({ width: 1366, height: 768 })
 
-    await Promise.all([
-        page.waitForNavigation(),
-        await page.goto(urlPage, {
-            waitUntil: "networkidle0",
-        })
-    ])
+        await Promise.all([
+            page.waitForNavigation(),
+            await page.goto(urlPage, {
+                waitUntil: "networkidle0",
+            })
+        ])
 
-    await Promise.all([
-        page.waitForNavigation(),
-        await page.type('[id="notion-email-input-1"]', process.env.NOTION_EMAIL),
-        await page.keyboard.press("Enter", { delay: 1000 }),
-        await page.type("#notion-password-input-2", process.env.NOTION_PW),
-        await page.keyboard.press("Enter", { delay: 2000 })
-    ])
+        await Promise.all([
+            page.waitForNavigation(),
+            await page.type('[id="notion-email-input-1"]', process.env.NOTION_EMAIL),
+            await page.keyboard.press("Enter", { delay: 1000 }),
+            await page.type("#notion-password-input-2", process.env.NOTION_PW),
+            await page.keyboard.press("Enter", { delay: 2000 })
+        ])
 
-    await page.waitForTimeout(5000)
-    await page.click('.notion-page-content .notranslate')
-    // await page.type('.notion-page-content .notranslate', '/Create linked database', { delay: 2000 })
-    // await page.keyboard.press("Enter", { delay: 3000 })
-    // await page.type('.notion-page-content input', 'Subjects', { delay: 2000 })
-    // await page.keyboard.press("ArrowUp", { delay: 3000 })
-    // await page.keyboard.press("Enter", { delay: 1000 })
+        await page.waitForTimeout(3000)
+        await page.click('.notion-page-content .notranslate')
+        await page.keyboard.type('/Quote')
+        await page.keyboard.press("Enter", { delay: 100 })
+        await page.keyboard.type('**⚓ Index**')
+        await page.keyboard.press("Enter", { delay: 100 })
+
+        await page.keyboard.type(`Class ${i} - Class Title`)
+
+        i++
+        if (i < loop) await runCreateSubjectContent(subjects)
+    }
+
+    await runCreateSubjectContent(subjects)
 }
 
 
@@ -261,7 +246,6 @@ initBot().then((arguments) => {
             //     arguments.data.homePage,
             //     arguments.info.homePage_Title
             // )
-
         }
 
         if (option === '1') {
@@ -283,6 +267,7 @@ initBot().then((arguments) => {
                 subjectInfo.push({
                     title: readlineSync.question('Subject title: ') || 'ABC',
                     teacher: readlineSync.question('Subject teacher: '),
+                    classAmount: readlineSync.question('Class Amount: '),
                     link: arguments.info.platform_Link,
                     step: arguments.data.DB01,
                     pageMainURL: arguments.data.homePage.url,
@@ -295,15 +280,13 @@ initBot().then((arguments) => {
             }
 
             await createSubjectInfo(arguments)
-            await createSubject(subjectInfo)
-            // const pageId = await getPages(arguments.data.DB01)
+            const subjects = await createSubject(subjectInfo)
+            await createSubjectContent(subjects)
         }
 
-        setTimeout(() => {
-            resetInterface()
-            setStatus('🏁 Finished')
-            console.clear()
-        }, 3000)
+        // resetInterface()
+        // setStatus('🏁 Finished')
+        // setTimeout(() => console.clear(), 3000)
     })();
 })
 
