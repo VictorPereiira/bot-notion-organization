@@ -111,11 +111,11 @@ async function setSettings(homePage, newTitle) {
 
 async function createSubject({ title, type, link, step, teacher, pageMainURL, DB01 }) {
     resetInterface()
-    setStatus('🔨 Create Subjects...')
+    console.log(`Status: 🔨 Create Subjects...`)
+    console.log(`Process: Page Building - ${title}`)
     console.log('\n')
 
-    const prefix = 'AA'
-
+    const prefix = createPrefix(title)
     const page = await notion.pages.create({
         parent: {
             database_id: DB01.id
@@ -180,7 +180,7 @@ async function createSubject({ title, type, link, step, teacher, pageMainURL, DB
         ]
     })
 
-    console.log('✅ Subject Create!!!')
+    console.log(`✅ Subject ${prefix} - Create!!!`)
 }
 
 function resetInterface() {
@@ -194,9 +194,19 @@ function setStatus(message) {
     console.log('\n')
 }
 
+function createPrefix(pfx) {
+    let prefix = ''
+
+    pfx.split(' ').map(el => el[0]).forEach(el => {
+        return prefix += el.toUpperCase()
+    });
+
+    return prefix
+}
 
 initBot().then((arguments) => {
     (async () => {
+        // return console.log(arguments.data.DB01)
         resetInterface()
         setStatus('🧭 Open Menu Opitions')
         const option = readlineSync.question('Opiton: ')
@@ -211,13 +221,16 @@ initBot().then((arguments) => {
         }
 
         if (option === '1') {
+            resetInterface()
+            setStatus('🔨 Create Subjects...')
+
             await createSubject({
                 title: readlineSync.question('Subject title: ') || 'ABC',
                 type: arguments.data.DB01,
                 link: arguments.info.platform_Link,
                 step: arguments.data.DB01,
                 teacher: readlineSync.question('Subject teacher: '),
-                pageId: arguments.data.homePage.url,
+                pageMainURL: arguments.data.homePage.url,
                 DB01: arguments.data.DB01
             })
         }
