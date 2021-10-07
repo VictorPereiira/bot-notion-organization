@@ -5,6 +5,7 @@ const puppeteer = require('puppeteer')
 
 const notion = new Client({ auth: process.env.NOTION_KEY })
 
+// Get data
 async function initBot() {
     console.clear()
     console.log('🤖 Wellcome to Notion Organization Bot')
@@ -52,9 +53,6 @@ async function getData() {
         database_id: process.env.NOTION_DB01_ID
     })
 
-    // const DB01_pagesID = await getPages(DB01)
-    // return { homePage, DB01, DB01_pagesID }
-
     return { homePage, DB01 }
 }
 
@@ -82,7 +80,7 @@ async function getPages(db) {
         await page.keyboard.press("Enter", { delay: 2000 })
     ])
 
-    await page.waitForTimeout(5000)
+    await page.waitForTimeout(3000)
     const pageID = await page.$$eval('.notion-table-view  div  .notion-collection-item', el => {
         return el.map(el => el.dataset.blockId)
     })
@@ -91,6 +89,7 @@ async function getPages(db) {
     return pageID
 }
 
+// Bot functions
 async function setSettings(homePage, newTitle) {
     resetInterface()
     setStatus('🆙 Update Home Page Title...')
@@ -109,80 +108,135 @@ async function setSettings(homePage, newTitle) {
     })
 }
 
-async function createSubject({ title, type, link, step, teacher, pageMainURL, DB01 }) {
+async function createSubject(subjectInfo) {
     resetInterface()
     console.log(`Status: 🔨 Create Subjects...`)
-    console.log(`Process: Page Building - ${title}`)
     console.log('\n')
 
-    const prefix = createPrefix(title)
-    const page = await notion.pages.create({
-        parent: {
-            database_id: DB01.id
-        },
-        properties: {
-            [DB01.properties.Name.id]: {
-                title: [{
-                    text: {
-                        content: title
-                    }
-                }]
+    let i = 0
+    let infoAmount = subjectInfo.length
+
+    async function runCreateSubject(subjectInfo) {
+        const prefix = await createPrefix(subjectInfo[i].title)
+        const DB01_title = subjectInfo[i].DB01.properties.Name.id
+        const DB01_links = subjectInfo[i].DB01.properties.Links.id
+        const DB01_mentor = subjectInfo[i].DB01.properties.Mentor.id
+
+        const page = await notion.pages.create({
+            parent: {
+                database_id: subjectInfo[i].DB01.id
             },
-            // [DB01_Type]: {
-            //     select: [{
-            //         select: category.map(cat => { id: cat.id })
-            //     }]
-            // }
-            [DB01.properties.Links.id]: {
-                rich_text: [
-                    {
+            properties: {
+                [DB01_title]: {
+                    title: [{
                         text: {
-                            content: "Main Page",
-                            link: {
-                                url: pageMainURL
+                            content: subjectInfo[i].title
+                        }
+                    }]
+                },
+                [DB01_links]: {
+                    rich_text: [
+                        {
+                            text: {
+                                content: "Main Page",
+                                link: {
+                                    url: subjectInfo[i].pageMainURL
+                                }
+                            }
+                        },
+                        {
+                            text: {
+                                content: "   |   ",
+                            }
+                        },
+                        {
+                            text: {
+                                content: `${prefix}-Site`,
+                                link: {
+                                    url: subjectInfo[i].link
+                                }
                             }
                         }
-                    },
-                    {
+                    ]
+                },
+                // DB01_Step: { type: [{}]},
+                [DB01_mentor]: {
+                    rich_text: [{
                         text: {
-                            content: "   |   ",
-                        }
-                    },
-                    {
-                        text: {
-                            content: `${prefix}-Site`,
-                            link: {
-                                url: link
-                            }
-                        }
-                    }
-                ]
-            },
-            // DB01_Step: { type: [{}]},
-            [DB01.properties.Mentor.id]: {
-                rich_text: [{
-                    text: {
-                        content: teacher
-                    }
-                }]
-            }
-        },
-        children: [
-            {
-                paragraph: {
-                    text: [{
-                        text: {
-                            content: ''
+                            content: subjectInfo[i].teacher
                         }
                     }]
                 }
-            }
-        ]
-    })
+            },
+            children: [
+                {
+                    paragraph: {
+                        text: [{
+                            text: {
+                                content: ''
+                            }
+                        }]
+                    }
+                }
+            ]
+        })
 
-    console.log(`✅ Subject ${prefix} - Create!!!`)
+        i++
+        console.log(`✅ Subject ${prefix} - Create!!!`)
+        if (i < infoAmount) await runCreateSubject(subjectInfo)
+    }
+
+    await runCreateSubject(subjectInfo)
 }
 
+async function createConteSubject() {
+    const urlPage = (await notion.pages.retrieve({ page_id: AP_id })).url
+
+    const browser = await puppeteer.launch({
+        headless: false,
+        devtools: false
+    });
+
+    const page = await browser.newPage()
+    page.setViewport({ width: 1366, height: 768 })
+
+    await Promise.all([
+        page.waitForNavigation(),
+        await page.goto(urlPage, {
+            waitUntil: "networkidle0",
+        })
+    ])
+
+    await Promise.all([
+        page.waitForNavigation(),
+        await page.type('[id="notion-email-input-1"]', process.env.NOTION_EMAIL),
+        await page.keyboard.press("Enter", { delay: 1000 }),
+        await page.type("#notion-password-input-2", process.env.NOTION_PW),
+        await page.keyboard.press("Enter", { delay: 2000 })
+    ])
+
+    await page.waitForTimeout(5000)
+    await page.click('.notion-page-content .notranslate')
+    // await page.type('.notion-page-content .notranslate', '/Create linked database', { delay: 2000 })
+    // await page.keyboard.press("Enter", { delay: 3000 })
+    // await page.type('.notion-page-content input', 'Subjects', { delay: 2000 })
+    // await page.keyboard.press("ArrowUp", { delay: 3000 })
+    // await page.keyboard.press("Enter", { delay: 1000 })
+}
+
+
+async function createPrefix(pfx) {
+    let prefix = ''
+
+    pfx.split(' ').map(el => el[0]).forEach(el => {
+        return prefix += el.toUpperCase()
+    });
+
+    return prefix
+}
+
+
+// No async functions
 function resetInterface() {
     console.clear()
     console.log('🤖 Notion Organization Bot')
@@ -194,19 +248,10 @@ function setStatus(message) {
     console.log('\n')
 }
 
-function createPrefix(pfx) {
-    let prefix = ''
 
-    pfx.split(' ').map(el => el[0]).forEach(el => {
-        return prefix += el.toUpperCase()
-    });
-
-    return prefix
-}
-
+// Init Bot
 initBot().then((arguments) => {
     (async () => {
-        // return console.log(arguments.data.DB01)
         resetInterface()
         setStatus('🧭 Open Menu Opitions')
         const option = readlineSync.question('Opiton: ')
@@ -217,26 +262,48 @@ initBot().then((arguments) => {
             //     arguments.info.homePage_Title
             // )
 
-            console.log(arguments);
         }
 
         if (option === '1') {
             resetInterface()
             setStatus('🔨 Create Subjects...')
 
-            await createSubject({
-                title: readlineSync.question('Subject title: ') || 'ABC',
-                type: arguments.data.DB01,
-                link: arguments.info.platform_Link,
-                step: arguments.data.DB01,
-                teacher: readlineSync.question('Subject teacher: '),
-                pageMainURL: arguments.data.homePage.url,
-                DB01: arguments.data.DB01
-            })
+            const subjectAmount = readlineSync.question('How many subjects do you want to create: ')
+            let subjectCount = 0
+            let subjectInfo = []
+
+            resetInterface()
+            console.log('Status: 🔨 Create Subjects...')
+            console.log(`Process: 📥 Get info of ${subjectAmount} Subjects...`);
+            console.log('\n');
+
+            async function createSubjectInfo(arguments) {
+                console.log(`Subject - ${subjectCount + 1}`);
+
+                subjectInfo.push({
+                    title: readlineSync.question('Subject title: ') || 'ABC',
+                    teacher: readlineSync.question('Subject teacher: '),
+                    link: arguments.info.platform_Link,
+                    step: arguments.data.DB01,
+                    pageMainURL: arguments.data.homePage.url,
+                    DB01: arguments.data.DB01
+                })
+
+                subjectCount++
+                console.log('\n');
+                if (subjectCount < subjectAmount) await createSubjectInfo(arguments)
+            }
+
+            await createSubjectInfo(arguments)
+            await createSubject(subjectInfo)
+            // const pageId = await getPages(arguments.data.DB01)
         }
 
-        // resetInterface()
-        setStatus('🏁 Finished')
+        setTimeout(() => {
+            resetInterface()
+            setStatus('🏁 Finished')
+            console.clear()
+        }, 3000)
     })();
 })
 
