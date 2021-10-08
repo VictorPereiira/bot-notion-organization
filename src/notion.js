@@ -77,9 +77,8 @@ async function setSettings(homePage, newTitle) {
 }
 
 async function createSubject(subjectInfo) {
-    resetInterface()
-    console.log(`Status: 🔨 Create Subjects...`)
-    console.log('\n')
+    console.log(`Process: 📃 Creating Subjects Pages...`)
+    console.log('\n');
 
     let i = 0
     let infoAmount = subjectInfo.length
@@ -156,27 +155,32 @@ async function createSubject(subjectInfo) {
         })
 
         i++
-        console.log(`✅ Subject ${prefix} - Create!!!`)
+        console.log(`✅ Page for ${prefix} - Created!!!`)
         if (i < infoAmount) await runCreateSubject(subjectInfo)
     }
 
     await runCreateSubject(subjectInfo)
+    console.log('\n');
     return subjects
 }
 
 async function createSubjectContent(subjects) {
-    const i = 0
+    console.log('Process: 📕 Creating Subjects Content...')
+    console.log('\n');
+
+    let i = 0
     const loop = subjects.length
+
+    const browser = await puppeteer.launch({
+        headless: false,
+        devtools: false
+    });
+
+    const page = await browser.newPage()
+    page.setViewport({ width: 1366, height: 768 })
 
     async function runCreateSubjectContent(subjects) {
         const urlPage = (await notion.pages.retrieve({ page_id: subjects[i].pageId })).url
-        const browser = await puppeteer.launch({
-            headless: false,
-            devtools: false
-        });
-
-        const page = await browser.newPage()
-        page.setViewport({ width: 1366, height: 768 })
 
         await Promise.all([
             page.waitForNavigation(),
@@ -185,30 +189,81 @@ async function createSubjectContent(subjects) {
             })
         ])
 
-        await Promise.all([
-            page.waitForNavigation(),
-            await page.type('[id="notion-email-input-1"]', process.env.NOTION_EMAIL),
-            await page.keyboard.press("Enter", { delay: 1000 }),
-            await page.type("#notion-password-input-2", process.env.NOTION_PW),
-            await page.keyboard.press("Enter", { delay: 2000 })
-        ])
+        if (i === 0) {
+            await Promise.all([
+                page.waitForNavigation(),
+                await page.type('[id="notion-email-input-1"]', process.env.NOTION_EMAIL),
+                await page.keyboard.press("Enter", { delay: 1000 }),
+                await page.type("#notion-password-input-2", process.env.NOTION_PW),
+                await page.keyboard.press("Enter", { delay: 2000 })
+            ])
+        }
 
-        await page.waitForTimeout(3000)
+        let classCount = 0
+        let classAmount = subjects[i].classAmount
+
+        await page.waitForTimeout(1500)
         await page.click('.notion-page-content .notranslate')
-        await page.keyboard.type('/Quote')
+        await page.keyboard.type('/Quote', { delay: 100 })
         await page.keyboard.press("Enter", { delay: 100 })
-        await page.keyboard.type('**⚓ Index**')
+        await page.keyboard.type('**⚓ Index**', { delay: 50 })
+        await page.keyboard.type('/Gray background')
+        await page.keyboard.press("Enter", { delay: 100 })
         await page.keyboard.press("Enter", { delay: 100 })
 
-        await page.keyboard.type(`Class ${i} - Class Title`)
+        async function loopClassIndex(classCount) {
+            if ((classCount + 1) <= 9) {
+                if (classCount == 0) await page.keyboard.type(`[]Class 0${classCount + 1} - Class Title`)
+                else await page.keyboard.type(`Class 0${classCount + 1} - Class Title`)
+            } else {
+                await page.keyboard.type(`Class ${classCount + 1} - Class Title`)
+            }
+
+            classCount++
+            await page.keyboard.press("Enter", { delay: 100 })
+            if (classCount < classAmount) await loopClassIndex(classCount)
+        }
+
+        await loopClassIndex(classCount)
+        await page.keyboard.press("Enter", { delay: 100 })
+        await page.keyboard.press("Enter", { delay: 100 })
+
+        classCount = 0
+        async function loopClassTopic(classCount) {
+            await page.keyboard.type('/H3', { delay: 50 })
+            await page.keyboard.press("Enter", { delay: 100 })
+
+            if ((classCount + 1) <= 9) await page.keyboard.type(`**Class 0${classCount + 1} - Class Title**`, { delay: 50 })
+            else await page.keyboard.type(`**Class ${classCount + 1} - Class Title**`, { delay: 50 })
+
+            await page.keyboard.press("Enter", { delay: 100 })
+            await page.keyboard.type('---')
+            await page.keyboard.press("Enter", { delay: 100 })
+
+            await page.keyboard.type('-')
+            await page.keyboard.press("Space")
+            await page.keyboard.type('👇🏾 Content here')
+
+            await page.keyboard.press("Enter", { delay: 100 })
+            await page.keyboard.press("Enter", { delay: 100 })
+            await page.keyboard.press("Enter", { delay: 100 })
+
+            classCount++
+            if (classCount < classAmount) await loopClassTopic(classCount)
+        }
+
+        await loopClassTopic(classCount)
+        console.log(`✅ Subject ${i} Content - Created!!!`)
 
         i++
+        await page.waitForTimeout(1000)
         if (i < loop) await runCreateSubjectContent(subjects)
     }
 
     await runCreateSubjectContent(subjects)
+    await page.waitForTimeout(2000)
+    await browser.close()
 }
-
 
 async function createPrefix(pfx) {
     let prefix = ''
@@ -233,7 +288,6 @@ function setStatus(message) {
     console.log('\n')
 }
 
-
 // Init Bot
 initBot().then((arguments) => {
     (async () => {
@@ -250,14 +304,14 @@ initBot().then((arguments) => {
 
         if (option === '1') {
             resetInterface()
-            setStatus('🔨 Create Subjects...')
+            setStatus('🔨 Creating Subjects...')
 
             const subjectAmount = readlineSync.question('How many subjects do you want to create: ')
             let subjectCount = 0
             let subjectInfo = []
 
             resetInterface()
-            console.log('Status: 🔨 Create Subjects...')
+            console.log('Status: 🔨 Creating Subjects...')
             console.log(`Process: 📥 Get info of ${subjectAmount} Subjects...`);
             console.log('\n');
 
@@ -284,9 +338,9 @@ initBot().then((arguments) => {
             await createSubjectContent(subjects)
         }
 
-        // resetInterface()
-        // setStatus('🏁 Finished')
-        // setTimeout(() => console.clear(), 3000)
+        resetInterface()
+        setStatus('🏁 Finished')
+        setTimeout(() => console.clear(), 1200)
     })();
 })
 
