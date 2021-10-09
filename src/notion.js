@@ -7,13 +7,8 @@ const notion = new Client({ auth: process.env.NOTION_KEY })
 
 // Get data
 async function initBot() {
-    console.clear()
-    console.log('🤖 Wellcome to Notion Organization Bot')
-    console.log('\n')
-
     const data = await getData()
     const info = await getInfo(data.homePage)
-
     return { data, info }
 }
 
@@ -31,7 +26,6 @@ async function getInfo(homePage) {
 
     resetInterface()
     setStatus('🆙 Update Plataform Link...')
-    // NOTION_PLATFORM_LINK = 'https://example.com/'
     info.platform_Link = process.env.NOTION_PLATFORM_LINK
 
     if (info.platform_Link === undefined) {
@@ -151,7 +145,8 @@ async function createSubject(subjectInfo) {
 
         subjects.push({
             pageId: page.id,
-            classAmount: subjectInfo[i].classAmount
+            classAmount: subjectInfo[i].classAmount,
+            classTitle: subjectInfo[i].classTitle
         })
 
         i++
@@ -201,6 +196,7 @@ async function createSubjectContent(subjects) {
 
         let classCount = 0
         let classAmount = subjects[i].classAmount
+        let classTitle = subjects[i].classTitle
 
         await page.waitForTimeout(1500)
         await page.click('.notion-page-content .notranslate')
@@ -211,30 +207,30 @@ async function createSubjectContent(subjects) {
         await page.keyboard.press("Enter", { delay: 100 })
         await page.keyboard.press("Enter", { delay: 100 })
 
-        async function loopClassIndex(classCount) {
+        async function loopClassIndex(classCount, classTitle) {
             if ((classCount + 1) <= 9) {
-                if (classCount == 0) await page.keyboard.type(`[]Class 0${classCount + 1} - Class Title`)
-                else await page.keyboard.type(`Class 0${classCount + 1} - Class Title`)
+                if (classCount == 0) await page.keyboard.type(`[]Class 0${classCount + 1} - ${classTitle[classCount]}`)
+                else await page.keyboard.type(`Class 0${classCount + 1} - ${classTitle[classCount]}`)
             } else {
-                await page.keyboard.type(`Class ${classCount + 1} - Class Title`)
+                await page.keyboard.type(`Class ${classCount + 1} - ${classTitle[classCount]}`)
             }
 
             classCount++
             await page.keyboard.press("Enter", { delay: 100 })
-            if (classCount < classAmount) await loopClassIndex(classCount)
+            if (classCount < classAmount) await loopClassIndex(classCount, classTitle)
         }
 
-        await loopClassIndex(classCount)
+        await loopClassIndex(classCount, classTitle)
         await page.keyboard.press("Enter", { delay: 100 })
         await page.keyboard.press("Enter", { delay: 100 })
 
         classCount = 0
-        async function loopClassTopic(classCount) {
+        async function loopClassTopic(classCount, classTitle) {
             await page.keyboard.type('/H3', { delay: 50 })
             await page.keyboard.press("Enter", { delay: 100 })
 
-            if ((classCount + 1) <= 9) await page.keyboard.type(`**Class 0${classCount + 1} - Class Title**`, { delay: 50 })
-            else await page.keyboard.type(`**Class ${classCount + 1} - Class Title**`, { delay: 50 })
+            if ((classCount + 1) <= 9) await page.keyboard.type(`**Class 0${classCount + 1} - ${classTitle[classCount]}**`, { delay: 50 })
+            else await page.keyboard.type(`**Class ${classCount + 1} - ${classTitle[classCount]}**`, { delay: 50 })
 
             await page.keyboard.press("Enter", { delay: 100 })
             await page.keyboard.type('---')
@@ -249,10 +245,10 @@ async function createSubjectContent(subjects) {
             await page.keyboard.press("Enter", { delay: 100 })
 
             classCount++
-            if (classCount < classAmount) await loopClassTopic(classCount)
+            if (classCount < classAmount) await loopClassTopic(classCount, classTitle)
         }
 
-        await loopClassTopic(classCount)
+        await loopClassTopic(classCount, classTitle)
         console.log(`✅ Subject ${i} Content - Created!!!`)
 
         i++
@@ -275,6 +271,16 @@ async function createPrefix(pfx) {
     return prefix
 }
 
+async function classInfo(classAmount) {
+    let info = []
+
+    for (let i = 0; i < classAmount; i++) {
+        info.push(readlineSync.question(`Title of Class ${i + 1}: `))
+    }
+
+    return info
+}
+
 
 // No async functions
 function resetInterface() {
@@ -288,21 +294,17 @@ function setStatus(message) {
     console.log('\n')
 }
 
+
 // Init Bot
 initBot().then((arguments) => {
     (async () => {
         resetInterface()
         setStatus('🧭 Open Menu Opitions')
-        const option = readlineSync.question('Opiton: ')
 
-        if (option === '0') {
-            // await setSettings(
-            //     arguments.data.homePage,
-            //     arguments.info.homePage_Title
-            // )
-        }
+        const optionsTitle = ['Create Subject']
+        const option = readlineSync.keyInSelect(optionsTitle, 'Choose an option: ')
 
-        if (option === '1') {
+        if (option == 0) {
             resetInterface()
             setStatus('🔨 Creating Subjects...')
 
@@ -318,10 +320,18 @@ initBot().then((arguments) => {
             async function createSubjectInfo(arguments) {
                 console.log(`Subject - ${subjectCount + 1}`);
 
+                let classAmount = null
+
+                async function getClassAmount(params) {
+                    classAmount = readlineSync.question('Class Amount: ')
+                    return classAmount
+                }
+
                 subjectInfo.push({
                     title: readlineSync.question('Subject title: ') || 'ABC',
                     teacher: readlineSync.question('Subject teacher: '),
-                    classAmount: readlineSync.question('Class Amount: '),
+                    classAmount: await getClassAmount(),
+                    classTitle: await classInfo(classAmount),
                     link: arguments.info.platform_Link,
                     step: arguments.data.DB01,
                     pageMainURL: arguments.data.homePage.url,
@@ -336,6 +346,13 @@ initBot().then((arguments) => {
             await createSubjectInfo(arguments)
             const subjects = await createSubject(subjectInfo)
             await createSubjectContent(subjects)
+        }
+
+        if (option === '0') {
+            // await setSettings(
+            //     arguments.data.homePage,
+            //     arguments.info.homePage_Title
+            // )
         }
 
         resetInterface()
